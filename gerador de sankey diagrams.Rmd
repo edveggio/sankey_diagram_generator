@@ -20,6 +20,7 @@ if (!require("data.table")) install.packages("data.table")
 if (!require("openxlsx")) install.packages("openxlsx")
 if (!require("knitr")) install.packages("knitr")
 if (!require("networkD3")) install.packages("networkD3")
+if (!require("htmltools")) install.packages("htmltools")
 ```
 
 ```{r carga de dados}
@@ -75,6 +76,8 @@ sankey_plot <- sankeyNetwork(Links = links_sem_zeros, Nodes = nodes,
               Value = "value", NodeID = "name", fontSize = 15, fontFamily = "sans-serif")
 
 sankey_plot
+
+htmltools::save_html(sankey_plot, paste0("sankey_diagram",Sys.Date() ,'.html'))
 
 ```
 

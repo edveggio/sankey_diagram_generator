@@ -1,0 +1,80 @@
+---
+title: "gerador de sankey diagrams"
+author: "Ed Velho"
+date: "2024-05-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r bibliotecas, echo=FALSE}
+
+if (!require("tidyverse")) install.packages("tidyverse")
+if (!require("reshape2")) install.packages("reshape2")
+if (!require("vtable")) install.packages("vtable")
+if (!require("lubridate")) install.packages("lubridate")
+if (!require("formattable")) install.packages("formattable")
+if (!require("data.table")) install.packages("data.table")
+if (!require("openxlsx")) install.packages("openxlsx")
+if (!require("knitr")) install.packages("knitr")
+if (!require("networkD3")) install.packages("networkD3")
+```
+
+```{r carga de dados}
+dt <- read_delim(file.choose(), 
+    delim = ";", escape_double = FALSE, col_types = cols(.default = col_datetime(format = "%Y-%m-%d %H:%M:%S")))
+```
+```{r sankey_tratamento_de_dados}
+
+dt_entradas_sankey <- dt %>% 
+  select(c(starts_with("Primeira vez que entrou")))
+
+names(dt_entradas_sankey) <- stringr::str_remove_all(names(dt_entradas_sankey),"Primeira vez que entrou na fase " )
+
+dt_saidas_sankey <- dt %>% 
+  select(c(starts_with("Última vez que saiu")))
+
+names(dt_saidas_sankey) <- stringr::str_remove_all(names(dt_saidas_sankey),"Última vez que saiu da fase " )
+
+movimentacoes <- data.frame(matrix(NA, 
+                                   nrow = dim(dt_entradas_sankey)[2], 
+                                   ncol = dim(dt_saidas_sankey)[2]))
+names(movimentacoes) <- names(dt_saidas_sankey)
+row.names(movimentacoes) <- names(dt_entradas_sankey)
+
+for (j in 1:dim(dt_entradas_sankey)[2]) {
+  for (i in 2:dim(dt_saidas_sankey)[2]) {
+    aux_contagem_movimentacoes <- sum(dt_entradas_sankey[i] == dt_saidas_sankey[j], na.rm = TRUE )
+    movimentacoes[i,j] <- aux_contagem_movimentacoes
+  }
+}
+
+melted_movimentacoes <- melt(movimentacoes)
+```
+
+
+```{r sankey_chart}
+
+links <- data.frame(
+  target=rep(0:(dim(dt_saidas_sankey)[2]-1), dim(dt_saidas_sankey)[2]), 
+  source=rep(0:(dim(dt_entradas_sankey)[2]-1),each = dim(dt_entradas_sankey)[2]), 
+  value=melted_movimentacoes$value
+  )
+
+links["value"][is.na(links["value"])] <- 0
+
+links_sem_zeros <- links %>% 
+  filter(value >54)
+
+nodes <- data_frame("name" = names(dt_entradas_sankey))
+
+sankey_plot <- sankeyNetwork(Links = links_sem_zeros, Nodes = nodes,
+              Source = "source", Target = "target",
+              Value = "value", NodeID = "name", fontSize = 15, fontFamily = "sans-serif")
+
+sankey_plot
+
+```
+

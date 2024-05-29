@@ -11,6 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r bibliotecas, echo=FALSE}
 
+#Neste chunk chamamos as bibliotecas
+
 if (!require("tidyverse")) install.packages("tidyverse")
 if (!require("reshape2")) install.packages("reshape2")
 if (!require("vtable")) install.packages("vtable")
@@ -24,26 +26,41 @@ if (!require("htmltools")) install.packages("htmltools")
 ```
 
 ```{r carga de dados}
+
+# Aqui carregamos os dados principais. Algumas informações importantes. Os dados que devem entrar aqui são aqueles retirados de relatórios do pipefy. Estes dados podem conter um qualquer numero ou ordem de colunas, mas as unicas que serão utilizadas são aquelas com "Primeira vez que entrou" e "Ultima vez que saiu". O pipefy só gera um arquivo xlsx e para ser utilizado aqui pe necessário conversar para um formato CSV com coding em UTF-8. Se não for esse encoding nada funcionara. 
+
 dt <- read_delim(file.choose(), 
     delim = ";", escape_double = FALSE, col_types = cols(.default = col_datetime(format = "%Y-%m-%d %H:%M:%S")))
 ```
+
 ```{r sankey_tratamento_de_dados}
+#Recortamos da carga de dados atuais um dataframe somente com os datas de entrada
 
 dt_entradas_sankey <- dt %>% 
   select(c(starts_with("Primeira vez que entrou")))
 
+#Retiramos dos nomes das colunas a frase repetitiva "Primeira vez que entrou na fase " deixando assim uma tabela que so contem as entradas e em cada coluna a fase em questão. 
+
 names(dt_entradas_sankey) <- stringr::str_remove_all(names(dt_entradas_sankey),"Primeira vez que entrou na fase " )
+
+#Recortamos da carga de dados atuais um dataframe somente com os datas de saída
 
 dt_saidas_sankey <- dt %>% 
   select(c(starts_with("Última vez que saiu")))
 
+#Retiramos dos nomes das colunas a frase repetitiva "Ultima vez que saiu da fase " deixando assim uma tabela que so contem as saídas  e em cada coluna a fase em questão.
+
 names(dt_saidas_sankey) <- stringr::str_remove_all(names(dt_saidas_sankey),"Última vez que saiu da fase " )
+
+#Criamos uma matrix onde as colunas representam as entradas e as linhas representam as saidas
 
 movimentacoes <- data.frame(matrix(NA, 
                                    nrow = dim(dt_entradas_sankey)[2], 
                                    ncol = dim(dt_saidas_sankey)[2]))
 names(movimentacoes) <- names(dt_saidas_sankey)
 row.names(movimentacoes) <- names(dt_entradas_sankey)
+
+#contamos as vezes que um data de entrada é exatamente igual a uma data de saída. Fazemos isso comparando todas as entradas com todas as saídas, em dupplas. 
 
 for (j in 1:dim(dt_entradas_sankey)[2]) {
   for (i in 2:dim(dt_saidas_sankey)[2]) {
@@ -52,30 +69,46 @@ for (j in 1:dim(dt_entradas_sankey)[2]) {
   }
 }
 
+#a função melted serve para tranformar uma tabela wide em uma tabela long. O formato que precisamos para criar as enteidadde de grafo para o grafico funcionar.
+
 melted_movimentacoes <- melt(movimentacoes)
 ```
 
 
 ```{r sankey_chart}
 
+# O diagrama de sankey é baseado numa logica de grafo onde efixtem principalmente duas entidades. O nós (nodos) e as arestas (links). o que fazemos no codigo a seguir é justamente expplicitar de quem (source) para quem (target) e quanto (value).
+ 
 links <- data.frame(
   target=rep(0:(dim(dt_saidas_sankey)[2]-1), dim(dt_saidas_sankey)[2]), 
   source=rep(0:(dim(dt_entradas_sankey)[2]-1),each = dim(dt_entradas_sankey)[2]), 
   value=melted_movimentacoes$value
   )
 
+#para os casos onde não se encontrou nenhum caso de ligação entre as fases o algoritmo cria um NA. Aqui subtituimos esse NA por zero
+
 links["value"][is.na(links["value"])] <- 0
 
+#Aqui retiramos dados irrelevantes para tornar o gráfico mais claro. Cortamos todos os links que representem menos de 1% do maior link. Esse valor é arbitário. 
+
 links_sem_zeros <- links %>% 
-  filter(value >54)
+  filter(value > max(links$value)/100)
+
+#Criamos um dataframe com os nodes
 
 nodes <- data_frame("name" = names(dt_entradas_sankey))
+
+#Utilizando os data frames nodes e links criamos o plot final 
 
 sankey_plot <- sankeyNetwork(Links = links_sem_zeros, Nodes = nodes,
               Source = "source", Target = "target",
               Value = "value", NodeID = "name", fontSize = 15, fontFamily = "sans-serif")
 
+#plotamos o gráfico
+
 sankey_plot
+
+#salvamos o resultado na pasta onde está o algoritmo no formato de html.
 
 htmltools::save_html(sankey_plot, paste0("sankey_diagram",Sys.Date() ,'.html'))
 

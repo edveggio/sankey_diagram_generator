@@ -1,3 +1,3 @@
 # sankey_diagram_generator
-Um gerador de diagramas sankey baseado no match entre timestamps de entrada e saida de fases de um arquivo extraído do pipefy, entretanto o modelo é agnostico o bastante para receber qualquer arquivo que tenha estes timestamps. 
-O arquivo inicial deve ser um CSV UTF-8
+A Sankey diagram generator based on the match between the timestamps ins and outs of columns in a kanban systems. This version was created specially for Pipefy .CSV file, but it can easily be converted to any other system since the .CSV file includes columns of ins and outs timestamps. 
+The data file need to be in CSV UTF-8 encode.
